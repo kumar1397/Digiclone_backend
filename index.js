@@ -22,12 +22,9 @@ app.use(
 
 app.use(express.json());
 
-// Connect to the database
 dbConnect();
 
-// Cloudinary configuration
 
-// Parse URL-encoded data
 app.use(
   bodyParser.urlencoded({
     extended: true,
