@@ -115,22 +115,3 @@ export const getSessionsByClone = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-// Get specific conversation session by sessionId
-export const getConversationBySession = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { sessionId } = req.params;
-
-    const conversation = await Conversation.findOne({ userId, sessionId });
-
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation session not found' });
-    }
-
-    res.status(200).json(conversation);
-  } catch (err) {
-    console.error('Error fetching conversation session:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
