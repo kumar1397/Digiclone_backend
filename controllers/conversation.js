@@ -1,10 +1,6 @@
-// controllers/conversationController.js
-import Conversation from '../models/Conversation.js';
-import { v4 as uuidv4 } from 'uuid';
-import mongoose from 'mongoose';
 
-// Save a message to conversation with sessionId
-// controllers/conversationController.js
+import Conversation from '../models/Conversation.js';
+import mongoose from 'mongoose';
 
 export const saveMessage = async (req, res) => {
   try {
@@ -48,35 +44,16 @@ export const saveMessage = async (req, res) => {
       ];
     });
 
-    // Add completion message
-    const completionMessage = {
-      role: 'clone',
-      content: 'Session completed',
-      timestamp: now,
-    };
-    messages.push(completionMessage);
-
     // Create new conversation with all messages
     const conversation = new Conversation({
       userId,
       cloneId: folder,
-      sessionId: uuidv4(),
       messages: messages,
-      lastMessageAt: now,
     });
 
     await conversation.save();
-    console.log('Conversation saved successfully:', {
-      sessionId: conversation.sessionId,
-      messageCount: conversation.messages.length,
-      lastMessageAt: conversation.lastMessageAt,
-      firstMessageContent: conversation.messages[0]?.content,
-      firstMessageLength: conversation.messages[0]?.content?.length
-    });
-
     return res.status(200).json({ 
       message: 'Conversation saved successfully',
-      sessionId: conversation.sessionId,
       messageCount: conversation.messages.length
     });
   } catch (err) {
