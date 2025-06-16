@@ -1,14 +1,12 @@
 import express from 'express';
-import {
-  saveMessage,
-  getUserConversations,
-} from '../controllers/conversation.js';
+import { saveMessage, getUserConversations, getSessionsByClone } from '../controllers/conversation.js';
 
 
 const router = express.Router();
 
-router.post('/save', saveMessage);
-router.get('/', getUserConversations);
-
+// Conversation routes
+router.post('/conversation/save', saveMessage);
+router.get('/conversations', getUserConversations);
+router.get('/conversations/:cloneId', getSessionsByClone);
 
 export default router;

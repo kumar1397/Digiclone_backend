@@ -5,7 +5,7 @@ import user from "./routes/user.js";
 import bodyParser from "body-parser";
 import dbConnect from "./config/database.js";
 import conversation from "./routes/conversation.js";
-
+import fileupload from "./routes/fileupload.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -33,7 +33,8 @@ app.use(
 
 // Import and mount routes
 app.use("/", user);
-app.use("/conversation", conversation);
+app.use("/", conversation);
+app.use("/", fileupload);
 
 // Start the Express server
 app.listen(PORT, () => {

@@ -1,4 +1,3 @@
-
 import Conversation from '../models/Conversation.js';
 import mongoose from 'mongoose';
 
@@ -44,24 +43,38 @@ export const saveMessage = async (req, res) => {
       ];
     });
 
-    // Create new conversation with all messages
-    const conversation = new Conversation({
-      userId,
-      cloneId: folder,
-      messages: messages,
+    // Check if conversation exists between user and clone
+    let conversation = await Conversation.findOne({ 
+      userId: userId,
+      cloneId: folder 
     });
 
-    await conversation.save();
-    return res.status(200).json({ 
-      message: 'Conversation saved successfully',
-      messageCount: conversation.messages.length
-    });
+    if (conversation) {
+      // If conversation exists, append new messages
+      conversation.messages.push(...messages);
+      await conversation.save();
+      return res.status(200).json({ 
+        message: 'Messages added to existing conversation',
+        messageCount: conversation.messages.length
+      });
+    } else {
+      // If no conversation exists, create new one
+      conversation = new Conversation({
+        userId,
+        cloneId: folder,
+        messages: messages,
+      });
+      await conversation.save();
+      return res.status(200).json({ 
+        message: 'New conversation created successfully',
+        messageCount: conversation.messages.length
+      });
+    }
   } catch (err) {
     console.error('Error saving conversation:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 // Get all conversations (sessions) for a user
 export const getUserConversations = async (req, res) => {
