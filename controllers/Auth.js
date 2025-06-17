@@ -19,132 +19,115 @@ app.use(
 
 export const signup = async (req, res) => {
   try {
-    console.log('Signup attempt with data:', { ...req.body, password: '[REDACTED]' });
-    const { name, email, password } = req.body;
+    const name = req.body.name?.trim();
+    const email = req.body.email?.trim();
+    const password = req.body.password;
 
-    // Validate required fields
     if (!name || !email || !password) {
-      console.log('Missing required fields:', { name: !!name, email: !!email, password: !!password });
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
+      return res.status(422).json({ success: false, message: "All fields are required" });
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('Invalid email format:', email);
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email format",
-      });
+      return res.status(422).json({ success: false, message: "Invalid email format" });
     }
 
-    // Check if user with the given email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log("User already exists with email:", email);
       return res.status(422).json({
         success: false,
-        message: "User already exists",
+        message: "Account cannot be created. Please try a different email.",
       });
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log('Password hashed successfully');
+    let hashedPassword;
+    try {
+      hashedPassword = await bcrypt.hash(password, 10);
+    } catch (err) {
+      console.error("Password hashing failed:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Internal error while securing your account.",
+      });
+    }
 
-    // Create a new user
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-    });
-    console.log('New user object created');
-
-    // Save the user to the database
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
-    console.log('User saved to database successfully');
 
     return res.status(201).json({
       success: true,
       message: "User registered successfully. Please sign in to continue.",
     });
   } catch (error) {
-    console.error('Signup error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    return res.status(400).json({
+    console.error('Signup error:', error);
+    return res.status(500).json({
       success: false,
-      message: `User cannot be registered: ${error.message}`,
+      message: "Internal server error. Please try again later.",
     });
   }
 };
 
+
 export const signin = async (req, res) => {
   try {
-    console.log('Signin attempt with email:', req.body.email);
     const { email, password } = req.body;
 
     if (!email || !password) {
-      console.log('Missing email or password');
-      return res.status(400).json({
-        success: false,
-        message: "Please fill up all the required fields",
-      });
+      return res.status(400).json({ success: false, message: "Email and password are required" });
     }
 
     const user = await User.findOne({ email });
-    console.log('User lookup result:', user ? 'User found' : 'User not found');
-
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "User is not registered with us. Please sign up to continue",
-      });
+      return res.status(401).json({ success: false, message: "User not registered" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log('Password validation result:', isPasswordValid);
-
-    if (isPasswordValid) {
-      const token = jwt.sign(
-        { email: user.email, id: user._id },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" }
-      );
-      console.log('JWT token generated successfully');
-
-      user.token = token;
-      user.password = undefined;
-
-      const options = {
-        expires: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-        httpOnly: true,
-      };
-
-      console.log('Sending successful login response');
-      res.cookie("token", token, options).status(200).json({
-        success: true,
-        token,
-        user,
-        message: "User login success",
-      });
-    } else {
-      console.log('Invalid password attempt');
-      return res.status(401).json({
-        success: false,
-        message: "Password is incorrect",
-      });
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: "Incorrect password" });
     }
-  } catch (error) {
-    console.error('Signin error:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Login failure. Please try again",
+
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: "3d",
     });
+
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: isProduction,                      // true only in production
+      sameSite: isProduction ? 'none' : 'lax',   // lax for localhost, none for cross-site
+      expires: new Date(Date.now() + 3 * 86400000), // 3 days
+    });
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+      message: "Login successful",
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+
+export const logout = async (req, res) => {
+  try {
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
+    
+    return res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    console.error("Logout error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
