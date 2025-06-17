@@ -2,20 +2,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import dotenv from "dotenv";
-import cors from "cors";
-import express from "express";
 
-dotenv.config();
-const app = express();
-
-app.use(express.json());
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL,
-    credentials: true,
-  })
-);
 
 export const signup = async (req, res) => {
   try {
@@ -94,8 +81,8 @@ export const signin = async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,                      // true only in production
-      sameSite: isProduction ? 'none' : 'lax',   // lax for localhost, none for cross-site
+      secure: isProduction, // true for production, false for local http
+      sameSite: 'lax',       // or 'strict', but 'lax' is safer cross-origin
       expires: new Date(Date.now() + 3 * 86400000), // 3 days
     });
 
