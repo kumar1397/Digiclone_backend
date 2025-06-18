@@ -91,6 +91,7 @@ export const signin = async (req, res) => {
         email: user.email,
         name: user.name,
       },
+      token, 
       message: "Login successful",
     });
   } catch (err) {
@@ -102,17 +103,15 @@ export const signin = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Logged out successfully' 
     });
-    
-    return res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (err) {
     console.error("Logout error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error" 
+    });
   }
 };
