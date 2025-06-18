@@ -81,8 +81,8 @@ export const signin = async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction, // true for production, false for local http
-      sameSite: 'lax',       // or 'strict', but 'lax' is safer cross-origin
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',  
       expires: new Date(Date.now() + 3 * 86400000), // 3 days
     });
 
