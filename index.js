@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 4000;
 
 
 // Use CORS middleware
+console.log("Allowed Origin:", JSON.stringify(process.env.FRONTEND_URL));
 app.use(
   cors({
     origin: process.env.FRONTEND_URL,

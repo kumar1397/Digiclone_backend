@@ -77,12 +77,10 @@ export const signin = async (req, res) => {
       expiresIn: "3d",
     });
 
-    const isProduction = process.env.NODE_ENV === 'production';
-
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',  
+      secure: true,
+      sameSite: 'none',
       expires: new Date(Date.now() + 3 * 86400000), // 3 days
     });
 
