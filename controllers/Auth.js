@@ -87,7 +87,7 @@ export const signin = async (req, res) => {
     return res.status(200).json({
       success: true,
       user: {
-        id: user._id,
+        _id: user._id, 
         email: user.email,
         name: user.name,
       },
