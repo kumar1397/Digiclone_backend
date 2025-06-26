@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import dbConnect from "./config/database.js";
 import conversation from "./routes/conversation.js";
 import fileupload from "./routes/fileupload.js";
+import clone from "./routes/clone.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -35,6 +36,7 @@ app.use(
 app.use("/", user);
 app.use("/", conversation);
 app.use("/", fileupload);
+app.use("/clone", clone);
 
 // Start the Express server
 app.listen(PORT, () => {
