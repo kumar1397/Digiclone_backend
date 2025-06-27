@@ -25,24 +25,6 @@ const upload = multer({ storage });
 
 // === Upload PDFs ===
 const uploadPDFs = async (req, res) => {
-  const userId = req.query.userId;
-
-  console.log('=== uploadPDFs Debug ===');
-  console.log('Received userId:', userId);
-  console.log('Files:', req.files);
-  console.log('=========================');
-
-  if (!userId || userId === 'undefined') {
-    return res.status(401).json({ error: 'Missing or invalid user ID in query parameters' });
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return res.status(400).json({ error: 'Invalid user ID format' });
-  }
-
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: 'No PDFs uploaded' });
-  }
 
   try {
     const savedFiles = await Promise.all(req.files.map(async file => {
