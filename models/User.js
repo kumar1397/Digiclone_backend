@@ -23,6 +23,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    clone: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'CloneProfile',
+      required: false
+    } 
   },
   {
     timestamps: true,

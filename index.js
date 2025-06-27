@@ -5,7 +5,6 @@ import user from "./routes/user.js";
 import bodyParser from "body-parser";
 import dbConnect from "./config/database.js";
 import conversation from "./routes/conversation.js";
-import fileupload from "./routes/fileupload.js";
 import clone from "./routes/clone.js";
 dotenv.config();
 const app = express();
@@ -35,7 +34,6 @@ app.use(
 // Import and mount routes
 app.use("/", user);
 app.use("/", conversation);
-app.use("/", fileupload);
 app.use("/clone", clone);
 
 // Start the Express server
