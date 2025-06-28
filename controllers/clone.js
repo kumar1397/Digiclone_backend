@@ -1,7 +1,7 @@
 import CloneProfile from '../models/Clone.js';
 import cloudinary from 'cloudinary';
 import multer from 'multer';
-import GridFsStorage from 'multer-gridfs-storage';
+import {GridFsStorage} from 'multer-gridfs-storage';
 import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 import LinkUpload from '../models/LinkUpload.js';
@@ -13,9 +13,12 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Create a new clone profile with file and link uploads
-function isFileSupported(type, supportedTypes) {
-  return supportedTypes.includes(type);
+// Check if Cloudinary is configured
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.error("⚠️ Cloudinary environment variables are missing!");
+  console.error("Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET");
+} else {
+  console.log("✅ Cloudinary configured successfully");
 }
 
 async function uploadtoCloudinary(fileBuffer, folder, quality) {
@@ -27,22 +30,33 @@ async function uploadtoCloudinary(fileBuffer, folder, quality) {
       quality: quality || "auto",
     };
 
-    return await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        options,
-        (error, result) => {
-          if (error) {
-            return reject(
-              new Error(`Upload to Cloudinary failed: ${error.message}`)
-            );
-          }
-          resolve(result);
-        }
-      );
-      stream.end(fileBuffer);
-    });
+    // Convert buffer to base64 for direct upload
+    const base64String = fileBuffer.toString('base64');
+    const dataURI = `data:image/jpeg;base64,${base64String}`;
+
+    console.log("Starting direct upload to Cloudinary...");
+    console.log("File size:", fileBuffer.length, "bytes");
+    console.log("Base64 length:", base64String.length);
+    
+    // Shorter timeout for smaller files (15 seconds)
+    const result = await Promise.race([
+      cloudinary.uploader.upload(dataURI, options),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Cloudinary upload timeout after 15 seconds')), 15000)
+      )
+    ]);
+    
+    console.log("Cloudinary upload completed successfully");
+    return result;
+    
   } catch (error) {
     console.error("Error in Cloudinary upload function:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      status: error.http_code,
+      name: error.name
+    });
     throw error;
   }
 }
@@ -158,12 +172,19 @@ async function LinksUpload(links) {
 const uploadForClone = multer({
   storage: multer.memoryStorage(), // Accepts all file types (images and PDFs)
   limits: {
-    fileSize: 1024 * 1024 * 1024, // 1GB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit per file
+    fieldSize: 10 * 1024 * 1024, // 10MB limit for field values
+    files: 20, // Maximum 20 files
+    fields: 100, // Maximum 100 fields
   },
+  fileFilter: (req, file, cb) => {
+    // Accept all file types for now
+    cb(null, true);
+  }
 });
 
 // GridFS storage for PDF-only uploads (if needed separately)
-const storage = new GridFsStorage({ 
+const storage = new GridFsStorage({
   url: process.env.DATABASE_URL,
   options: { useNewUrlParser: true, useUnifiedTopology: true },
   file: (req, file) => {
@@ -180,65 +201,43 @@ const storage = new GridFsStorage({
 const uploadForPDFs = multer({ storage });
 
 export const createClone = async (req, res) => {
-  console.log("In createClone!!");
-  console.log("Request body:", req.body);
-  console.log("Request files:", req.files);
-  console.log("Request query:", req.query);
-
-  const {
-    cloneName,
-    tone,
-    style,
-    values,
-    catchphrases,
-    dos,
-    donts,
-    description,
-    userId,
-    links
-  } = req.body;
-
-  // Extract files from req.files
-  const cloneImage = req.files?.cloneImage?.[0];
-  const uploadedFiles = req.files?.files || [];
-  
-  let imageurl = null;
-  let savedFiles = [];
-  let savedLinks = null;
 
   try {
-    // Step 1: Handle clone image upload if present
-    if (cloneImage) {
-      const supportedTypes = ["image/jpeg", "image/png"];
-      const filetype = cloneImage.mimetype; // check MIME type
-      
-      if (!isFileSupported(filetype, supportedTypes)) {
-        return res.status(415).json({
-          success: false,
-          message: "File format not supported. Allowable formats are png, jpg, and jpeg",
-        });
+    // Extract data from FormData
+    const cloneName = req.body.cloneName;
+    const tone = req.body.tone;
+    const style = req.body.style;
+    const values = req.body.values;
+    const catchphrases = req.body.catchphrases;
+    const dos = req.body.dos;
+    const donts = req.body.donts;
+    const description = req.body.description;
+    console.log(req.files);
+    // Parse links if they exist
+    let links = [];
+    if (req.body.links) {
+      try {
+        links = JSON.parse(req.body.links);
+      } catch (error) {
+        console.log("Error parsing links:", error);
+        links = [];
       }
-
-      const response = await uploadtoCloudinary(
-        cloneImage.buffer,
-        process.env.FOLDER_NAME,
-        70
-      );
-
-      if (!response || !response.secure_url) {
-        throw new Error("Invalid response from Cloudinary");
-      }
-
-      imageurl = response.secure_url;
-      console.log("Uploaded image URL:", response.secure_url);
     }
 
-    // Step 2: Create the clone record first
+    // Validate required fields
+    if (!cloneName || !tone || !style || !values) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: cloneName, tone, style, and values are required"
+      });
+    }
+    
+    // Create the clone record with string data only
     const newClone = new CloneProfile({
       clone_name: cloneName,
       tone,
       style,
-      image: imageurl || '', // Use uploaded image URL or empty string
+      image: 'default-avatar.png',
       catchphrases: catchphrases ? (Array.isArray(catchphrases) ? catchphrases : [catchphrases]) : [],
       values: values ? (Array.isArray(values) ? values : [values]) : [],
       dos,
@@ -247,31 +246,67 @@ export const createClone = async (req, res) => {
     });
 
     const savedClone = await newClone.save();
-    console.log("Clone created with ID:", savedClone._id);
 
-    // Step 3: Handle PDF uploads using cloneId
-    if (uploadedFiles.length > 0) {
-      savedFiles = await uploadPDFs(uploadedFiles, savedClone._id);
-      console.log("PDFs uploaded:", savedFiles);
+    // Handle links upload if present
+    let savedLinks = null;
+    if (links && links.length > 0) {
+      try {
+        savedLinks = await LinksUpload(links);
+      } catch (error) {
+        console.error("Error saving links:", error);
+      }
     }
 
-    // Step 4: Handle links upload
-    if (links) {
-      savedLinks = await LinksUpload(links);
-      console.log("Links uploaded:", savedLinks);
-    }
-
-    // Step 5: Update clone with file and link references
-    const updateData = {};
-    if (savedFiles.length > 0) {
-      updateData.fileUploads = savedFiles.map(file => file.fileId);
-    }
+    // Update clone with linkUpload reference if links were saved
     if (savedLinks) {
-      updateData.linkUpload = savedLinks._id;
+      savedClone.linkUpload = savedLinks._id;
+      await savedClone.save();
     }
 
-    if (Object.keys(updateData).length > 0) {
-      await CloneProfile.findByIdAndUpdate(savedClone._id, updateData);
+    // Handle clone image upload if present
+    if (req.files && req.files.length > 0) {
+      const imageFile = req.files.find(file => file.fieldname === 'cloneImage');
+      if (imageFile) {
+        console.log("Starting Cloudinary upload for:", imageFile.originalname);
+        console.log("Image file size:", imageFile.size, "bytes");
+        
+        // Check file size (should be small now)
+        if (imageFile.size > 5 * 1024 * 1024) { // 5MB limit
+          console.log("Image too large, using default image");
+        } else {
+          try {
+            const cloudinaryResult = await uploadtoCloudinary(
+              imageFile.buffer,
+              'clone-images',
+              'auto'
+            );
+            console.log("Cloudinary upload successful:", cloudinaryResult.secure_url);
+            savedClone.image = cloudinaryResult.secure_url;
+            await savedClone.save();
+            console.log("Clone updated with new image URL");
+          } catch (error) {
+            console.error("Error uploading clone image:", error);
+            console.log("Using default image due to upload error");
+          }
+        }
+      } else {
+        console.log("No cloneImage file found in request");
+      }
+    } else {
+      console.log("No files received in request");
+    }
+    
+    // Handle file uploads if present
+    let uploadedFiles = [];
+    if (req.files && req.files.length > 0) {
+      const pdfFiles = req.files.filter(file => file.fieldname === 'files');
+      if (pdfFiles.length > 0) {
+        try {
+          uploadedFiles = await uploadPDFs(pdfFiles, savedClone._id);
+        } catch (error) {
+          console.error("Error uploading files:", error);
+        }
+      }
     }
 
     return res.status(201).json({
@@ -280,14 +315,21 @@ export const createClone = async (req, res) => {
       data: {
         cloneId: savedClone._id,
         cloneName: savedClone.clone_name,
+        tone: savedClone.tone,
+        style: savedClone.style,
+        values: savedClone.values,
+        catchphrases: savedClone.catchphrases,
+        dos: savedClone.dos,
+        donts: savedClone.donts,
+        description: savedClone.freeform_description,
         image: savedClone.image,
-        files: savedFiles,
-        links: savedLinks
+        fileUploads: uploadedFiles,
+        linkUpload: savedLinks
       }
     });
 
   } catch (error) {
-    console.error("Error in createClone:", error);
+    console.error("Error creating clone:", error);
     return res.status(500).json({
       success: false,
       message: "Error creating clone",
