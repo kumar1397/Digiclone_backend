@@ -1,6 +1,8 @@
 import express from 'express';
 import {
   createClone,
+  getAllClones,
+  getCloneById,
   uploadForClone,
 } from '../controllers/clone.js';
 
@@ -13,5 +15,7 @@ router.get('/test', (req, res) => {
 
 // Clone CRUD routes - use multer middleware for FormData handling
 router.post('/create', uploadForClone.any(), createClone);
+router.get('/all', getAllClones);
+router.get('/:id', getCloneById);
 
 export default router;

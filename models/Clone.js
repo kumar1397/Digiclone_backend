@@ -2,7 +2,12 @@
 import mongoose from 'mongoose';
 
 const cloneProfileSchema = new mongoose.Schema({
-  clone_name: {
+  clone_id: {
+    type:String, 
+    unique:true,
+    required:true,
+  },
+  clone_name: { 
     type: String,
     required: true,
   },

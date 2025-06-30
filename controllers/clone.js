@@ -6,6 +6,12 @@ import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 import LinkUpload from '../models/LinkUpload.js';
 
+// Function to generate custom clone_id
+function generateCloneId() {
+  const random = Math.random().toString(16).substr(2, 12);
+  return `clone_u_${random}`;
+}
+
 // Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -234,6 +240,7 @@ export const createClone = async (req, res) => {
     
     // Create the clone record with string data only
     const newClone = new CloneProfile({
+      clone_id: generateCloneId(),
       clone_name: cloneName,
       tone,
       style,
@@ -303,6 +310,12 @@ export const createClone = async (req, res) => {
       if (pdfFiles.length > 0) {
         try {
           uploadedFiles = await uploadPDFs(pdfFiles, savedClone._id);
+          
+          // Update clone's fileUploads field with the uploaded file IDs
+          if (uploadedFiles.length > 0) {
+            savedClone.fileUploads = uploadedFiles.map(file => file.fileId);
+            await savedClone.save();
+          }
         } catch (error) {
           console.error("Error uploading files:", error);
         }
@@ -314,6 +327,7 @@ export const createClone = async (req, res) => {
       message: 'Clone created successfully',
       data: {
         cloneId: savedClone._id,
+        clone_id: savedClone.clone_id,
         cloneName: savedClone.clone_name,
         tone: savedClone.tone,
         style: savedClone.style,
@@ -333,6 +347,103 @@ export const createClone = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error creating clone",
+      error: error.message
+    });
+  }
+};
+
+export const getAllClones = async (req, res) => {
+  try {
+    // Fetch all clones with populated fileUploads and linkUpload
+    const clones = await CloneProfile.find({})
+      .populate('fileUploads', 'originalName fileSize uploadDate')
+      .populate('linkUpload', 'youtubeLinks otherLinks')
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    return res.status(200).json({
+      success: true,
+      message: 'Clones fetched successfully',
+      count: clones.length,
+      data: clones
+    });
+
+  } catch (error) {
+    console.error("Error fetching clones:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching clones",
+      error: error.message
+    });
+  }
+};
+
+export const getCloneById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid clone ID format"
+      });
+    }
+
+    // Fetch clone by ID with populated references
+    const clone = await CloneProfile.findById(id)
+      .populate('fileUploads', 'originalName fileSize uploadDate')
+      .populate('linkUpload', 'youtubeLinks otherLinks');
+
+    if (!clone) {
+      return res.status(404).json({
+        success: false,
+        message: "Clone not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Clone fetched successfully',
+      data: clone
+    });
+
+  } catch (error) {
+    console.error("Error fetching clone:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching clone",
+      error: error.message
+    });
+  }
+};
+
+export const getCloneByCloneId = async (req, res) => {
+  try {
+    const { clone_id } = req.params;
+
+    // Fetch clone by clone_id with populated references
+    const clone = await CloneProfile.findOne({ clone_id })
+      .populate('fileUploads', 'originalName fileSize uploadDate')
+      .populate('linkUpload', 'youtubeLinks otherLinks');
+
+    if (!clone) {
+      return res.status(404).json({
+        success: false,
+        message: "Clone not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Clone fetched successfully',
+      data: clone
+    });
+
+  } catch (error) {
+    console.error("Error fetching clone:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching clone",
       error: error.message
     });
   }
