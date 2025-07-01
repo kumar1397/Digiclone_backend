@@ -379,46 +379,6 @@ export const getAllClones = async (req, res) => {
 
 export const getCloneById = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid clone ID format"
-      });
-    }
-
-    // Fetch clone by ID with populated references
-    const clone = await CloneProfile.findById(id)
-      .populate('fileUploads', 'originalName fileSize uploadDate')
-      .populate('linkUpload', 'youtubeLinks otherLinks');
-
-    if (!clone) {
-      return res.status(404).json({
-        success: false,
-        message: "Clone not found"
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Clone fetched successfully',
-      data: clone
-    });
-
-  } catch (error) {
-    console.error("Error fetching clone:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching clone",
-      error: error.message
-    });
-  }
-};
-
-export const getCloneByCloneId = async (req, res) => {
-  try {
     const { clone_id } = req.params;
 
     // Fetch clone by clone_id with populated references
