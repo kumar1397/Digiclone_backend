@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import dbConnect from "./config/database.js";
 import conversation from "./routes/conversation.js";
 import clone from "./routes/clone.js";
+import fileupload from "./routes/fileupload.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -37,6 +38,7 @@ console.log("Registering routes...");
 app.use("/", user);
 app.use("/", conversation);
 app.use("/clone", clone);
+app.use("/", fileupload);
 console.log("Routes registered successfully");
 
 // Start the Express server
