@@ -67,9 +67,10 @@ export const getFilesByCloneIdString = async (req, res) => {
 export const streamFileById = async (req, res) => {
   try {
     const fileId = new mongoose.Types.ObjectId(req.params.id);
-    
-    // First check if file exists in our database
-    const fileDoc = await File.findById(fileId);
+
+    // ✅ Check in your files collection
+    const fileDoc = await File.findOne({ fileId: fileId }); // ← IMPORTANT FIX
+
     if (!fileDoc) {
       return res.status(404).json({ error: 'File not found' });
     }
@@ -78,17 +79,9 @@ export const streamFileById = async (req, res) => {
       bucketName: 'pdfs',
     });
 
-    // Check if file exists in GridFS
-    const files = await bucket.find({ _id: fileId }).toArray();
-    if (files.length === 0) {
-      return res.status(404).json({ error: 'File not found in storage' });
-    }
-
     const stream = bucket.openDownloadStream(fileId);
 
-    // Use the mime type from the database or default to application/pdf
-    const contentType = fileDoc.mimeType || 'application/pdf';
-    res.set('Content-Type', contentType);
+    res.set('Content-Type', fileDoc.mimeType || 'application/pdf');
     res.set('Content-Disposition', 'inline');
     res.set('Content-Length', fileDoc.fileSize);
 
@@ -96,21 +89,21 @@ export const streamFileById = async (req, res) => {
 
     stream.on('error', (err) => {
       console.error('Stream error:', err);
-      // Only send error if headers haven't been sent yet
       if (!res.headersSent) {
         res.status(500).json({ error: 'Error streaming file' });
       }
     });
 
     stream.on('end', () => {
-      console.log('File stream completed successfully');
+      console.log('✅ File stream completed');
     });
 
   } catch (error) {
-    console.error('Download error:', error);
+    console.error('❌ Download error:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 };
+
 
