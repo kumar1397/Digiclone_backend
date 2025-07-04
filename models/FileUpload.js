@@ -2,9 +2,8 @@ import mongoose from 'mongoose';
 
 const fileSchema = new mongoose.Schema({
   cloneId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: String,
     required: true,
-    ref: 'CloneProfile',
   },
   fileId: {
     type: mongoose.Schema.Types.ObjectId,

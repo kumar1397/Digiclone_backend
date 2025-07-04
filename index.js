@@ -11,7 +11,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-console.log("Starting server setup...");
 
 // Use CORS middleware
 app.use(
@@ -24,8 +23,7 @@ app.use(
 
 app.use(express.json());
 
-console.log("Connecting to database...");
-dbConnect();
+
 
 app.use(
   bodyParser.urlencoded({
@@ -34,29 +32,22 @@ app.use(
 );
 
 // Import and mount routes
-console.log("Registering routes...");
+
 app.use("/", user);
 app.use("/", conversation);
 app.use("/clone", clone);
 app.use("/", fileupload);
-console.log("Routes registered successfully");
-
 // Start the Express server
-app.listen(PORT, () => {
-  console.log(`Express server started at port ${PORT}`);
-  console.log(`Test the clone route at: http://localhost:${PORT}/clone/test`);
-});
 
 app.get("/", (req, res) => {
   res.send("<h1>Hello</h1>");
 });
 
 // Add a catch-all route for debugging
-app.use("*", (req, res) => {
-  console.log(`404 - Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ 
-    error: "Route not found", 
-    method: req.method, 
-    url: req.originalUrl 
-  });
+
+// Connect to database before starting server
+dbConnect();
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

@@ -111,7 +111,7 @@ async function uploadPDFs(uploadedFiles, cloneId) {
 
       // Save metadata to File collection
       const metadata = new File({
-        cloneId: new mongoose.Types.ObjectId(cloneId),
+        cloneId: cloneId, // Use clone_id string instead of ObjectId
         fileId: fileInfo._id,
         originalName: file.originalname,
         fileSize: file.size,
@@ -137,7 +137,7 @@ async function uploadPDFs(uploadedFiles, cloneId) {
   }
 };
 
-async function LinksUpload(links) {
+async function LinksUpload(links, cloneId) {
   try {
     const linksData = links || [];
     const youtubeLinks = [];
@@ -164,7 +164,11 @@ async function LinksUpload(links) {
       throw new Error('Invalid link format');
     }
 
-    const savedLinks = new LinkUpload({ youtubeLinks, otherLinks });
+    const savedLinks = new LinkUpload({ 
+      cloneId: cloneId, // Use clone_id string instead of ObjectId
+      youtubeLinks, 
+      otherLinks 
+    });
     await savedLinks.save();
 
     return savedLinks; // Return the saved links instead of sending response
@@ -258,7 +262,7 @@ export const createClone = async (req, res) => {
     let savedLinks = null;
     if (links && links.length > 0) {
       try {
-        savedLinks = await LinksUpload(links);
+        savedLinks = await LinksUpload(links, savedClone.clone_id);
       } catch (error) {
         console.error("Error saving links:", error);
       }
@@ -309,7 +313,7 @@ export const createClone = async (req, res) => {
       const pdfFiles = req.files.filter(file => file.fieldname === 'files');
       if (pdfFiles.length > 0) {
         try {
-          uploadedFiles = await uploadPDFs(pdfFiles, savedClone._id);
+          uploadedFiles = await uploadPDFs(pdfFiles, savedClone.clone_id);
           
           // Update clone's fileUploads field with the uploaded file IDs
           if (uploadedFiles.length > 0) {

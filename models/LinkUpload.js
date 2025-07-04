@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 
 const linkUploadSchema = new mongoose.Schema({
+  cloneId: {
+    type: String,
+    required: true,
+  },
   youtubeLinks: {
     type: [String],
     default: []

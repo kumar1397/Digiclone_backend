@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 import CloneProfile from '../models/Clone.js';
+import LinkUpload from '../models/LinkUpload.js';
 
 dotenv.config();
 
@@ -103,6 +104,70 @@ export const streamFileById = async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal server error' });
     }
+  }
+};
+
+// === Get All Links by Clone ID String ===
+export const getLinksByCloneIdString = async (req, res) => {
+  const cloneIdString = req.params.cloneIdString;
+
+  if (!cloneIdString || cloneIdString === 'undefined') {
+    return res.status(400).json({ error: 'Missing or invalid clone ID string' });
+  }
+
+  try {
+    // First find the clone by clone_id string
+    const clone = await CloneProfile.findOne({ clone_id: cloneIdString });
+    
+    if (!clone) {
+      return res.status(404).json({ error: 'Clone not found' });
+    }
+
+    // Check if clone has linkUpload reference
+    if (!clone.linkUpload) {
+      return res.status(200).json({
+        links: {
+          youtubeLinks: [],
+          otherLinks: []
+        },
+        message: 'No links found for this clone'
+      });
+    }
+
+    // Fetch the link upload document
+    const linkUpload = await LinkUpload.findById(clone.linkUpload);
+    
+    if (!linkUpload) {
+      return res.status(200).json({
+        links: {
+          youtubeLinks: [],
+          otherLinks: []
+        },
+        message: 'Link upload document not found'
+      });
+    }
+
+    // Format the response
+    const formattedLinks = {
+      _id: linkUpload._id,
+      youtubeLinks: linkUpload.youtubeLinks || [],
+      otherLinks: linkUpload.otherLinks || [],
+      createdAt: linkUpload.createdAt,
+      updatedAt: linkUpload.updatedAt
+    };
+
+    res.status(200).json({
+      links: formattedLinks,
+      cloneInfo: {
+        cloneId: clone._id,
+        cloneIdString: clone.clone_id,
+        cloneName: clone.clone_name
+      }
+    });
+
+  } catch (err) {
+    console.error("Error fetching links:", err);
+    res.status(500).json({ error: "Error fetching clone links" });
   }
 };
 
