@@ -1,4 +1,5 @@
 import CloneProfile from '../models/Clone.js';
+import User from '../models/User.js';
 import cloudinary from 'cloudinary';
 import multer from 'multer';
 import {GridFsStorage} from 'multer-gridfs-storage';
@@ -257,6 +258,19 @@ export const createClone = async (req, res) => {
     });
 
     const savedClone = await newClone.save();
+
+    // Update user's cloneId field if userId is provided
+    if (req.body.userId) {
+      try {
+        await User.findByIdAndUpdate(req.body.userId, {
+          cloneId: savedClone.clone_id
+        });
+        console.log(`Clone ${savedClone.clone_id} linked to user ${req.body.userId}`);
+      } catch (error) {
+        console.error("Error linking clone to user:", error);
+        // Don't fail the clone creation if user update fails
+      }
+    }
 
     // Handle links upload if present
     let savedLinks = null;

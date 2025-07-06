@@ -23,11 +23,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    clone: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'CloneProfile',
-      required: false
-    } 
+    phone: {
+      type: Number,
+      required: false,
+    },
+    cloneId: {
+      type: String,
+      required: false,
+    },
   },
   {
     timestamps: true,

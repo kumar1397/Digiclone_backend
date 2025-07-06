@@ -12,11 +12,13 @@ const cloneProfileSchema = new mongoose.Schema({
     required: true,
   },
   tone: {
-    type: String,
+    type: [String],
+    default:[],
     required: true,
   },
   style: {
-    type: String,
+    type: [String],
+    default:[],
     required: true,
   },
   image: {
