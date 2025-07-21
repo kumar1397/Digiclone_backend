@@ -5,7 +5,6 @@ import multer from 'multer';
 import {GridFsStorage} from 'multer-gridfs-storage';
 import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
-import LinkUpload from '../models/LinkUpload.js';
 
 // Function to generate custom clone_id
 function generateCloneId() {
@@ -138,46 +137,6 @@ async function uploadPDFs(uploadedFiles, cloneId) {
   }
 };
 
-async function LinksUpload(links, cloneId) {
-  try {
-    const linksData = links || [];
-    const youtubeLinks = [];
-    const otherLinks = [];
-
-    const processLink = (linkUrl) => {
-      if (linkUrl.toLowerCase().includes('youtube')) {
-        youtubeLinks.push(linkUrl);
-      } else {
-        otherLinks.push(linkUrl);
-      }
-    };
-
-    if (Array.isArray(linksData)) {
-      linksData.forEach(linkItem => {
-        if (typeof linkItem === 'string') processLink(linkItem);
-        else if (linkItem?.value) processLink(linkItem.value);
-      });
-    } else if (typeof linksData === 'string') {
-      processLink(linksData);
-    } else if (linksData?.value) {
-      processLink(linksData.value);
-    } else {
-      throw new Error('Invalid link format');
-    }
-
-    const savedLinks = new LinkUpload({ 
-      cloneId: cloneId, // Use clone_id string instead of ObjectId
-      youtubeLinks, 
-      otherLinks 
-    });
-    await savedLinks.save();
-
-    return savedLinks; // Return the saved links instead of sending response
-  } catch (error) {
-    console.error("Error saving links:", error);
-    throw error; // Throw error instead of sending response
-  }
-};
 
 // Configure multer for handling FormData - Memory storage for clone creation
 const uploadForClone = multer({
@@ -215,6 +174,7 @@ export const createClone = async (req, res) => {
 
   try {
     // Extract data from FormData
+    console.log(req.body);
     const cloneName = req.body.cloneName;
     const tone = req.body.tone;
     const style = req.body.style;
@@ -223,23 +183,17 @@ export const createClone = async (req, res) => {
     const dos = req.body.dos;
     const donts = req.body.donts;
     const description = req.body.description;
+    const youtubeLinks = req.body.youtubeLinks;
+    const otherLinks = req.body.otherLinks;
     console.log(req.files);
     // Parse links if they exist
-    let links = [];
-    if (req.body.links) {
-      try {
-        links = JSON.parse(req.body.links);
-      } catch (error) {
-        console.log("Error parsing links:", error);
-        links = [];
-      }
-    }
+
 
     // Validate required fields
-    if (!cloneName || !tone || !style || !values) {
+    if (!cloneName || !tone || !style || !values || !youtubeLinks || !otherLinks) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: cloneName, tone, style, and values are required"
+        message: "Missing required fields: cloneName, tone, style, values, youtubeLinks, and otherLinks are required"
       });
     }
     
@@ -255,6 +209,8 @@ export const createClone = async (req, res) => {
       dos,
       donts,
       freeform_description: description,
+      youtubeLinkUpload: youtubeLinks ? (Array.isArray(youtubeLinks) ? youtubeLinks : [youtubeLinks]) : [],
+      otherLinkUpload: otherLinks ? (Array.isArray(otherLinks) ? otherLinks : [otherLinks]) : [],
     });
 
     const savedClone = await newClone.save();
@@ -268,26 +224,8 @@ export const createClone = async (req, res) => {
         console.log(`Clone ${savedClone.clone_id} linked to user ${req.body.userId}`);
       } catch (error) {
         console.error("Error linking clone to user:", error);
-        // Don't fail the clone creation if user update fails
       }
-    }
-
-    // Handle links upload if present
-    let savedLinks = null;
-    if (links && links.length > 0) {
-      try {
-        savedLinks = await LinksUpload(links, savedClone.clone_id);
-      } catch (error) {
-        console.error("Error saving links:", error);
       }
-    }
-
-    // Update clone with linkUpload reference if links were saved
-    if (savedLinks) {
-      savedClone.linkUpload = savedLinks._id;
-      await savedClone.save();
-    }
-
     // Handle clone image upload if present
     if (req.files && req.files.length > 0) {
       const imageFile = req.files.find(file => file.fieldname === 'cloneImage');
@@ -324,7 +262,7 @@ export const createClone = async (req, res) => {
     // Handle file uploads if present
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
-      const pdfFiles = req.files.filter(file => file.fieldname === 'files');
+      const pdfFiles = req.files.filter(file => file.fieldname === 'uploadedFiles');
       if (pdfFiles.length > 0) {
         try {
           uploadedFiles = await uploadPDFs(pdfFiles, savedClone.clone_id);
@@ -356,7 +294,8 @@ export const createClone = async (req, res) => {
         description: savedClone.freeform_description,
         image: savedClone.image,
         fileUploads: uploadedFiles,
-        linkUpload: savedLinks
+        youtubeLinkUpload: savedClone.youtubeLinkUpload,
+        otherLinkUpload: savedClone.otherLinkUpload,
       }
     });
 
@@ -375,7 +314,6 @@ export const getAllClones = async (req, res) => {
     // Fetch all clones with populated fileUploads and linkUpload
     const clones = await CloneProfile.find({})
       .populate('fileUploads', 'originalName fileSize uploadDate')
-      .populate('linkUpload', 'youtubeLinks otherLinks')
       .sort({ createdAt: -1 }); // Sort by newest first
 
     return res.status(200).json({
@@ -402,7 +340,6 @@ export const getCloneById = async (req, res) => {
     // Fetch clone by clone_id with populated references
     const clone = await CloneProfile.findOne({ clone_id })
       .populate('fileUploads', 'originalName fileSize uploadDate')
-      .populate('linkUpload', 'youtubeLinks otherLinks');
 
     if (!clone) {
       return res.status(404).json({
@@ -422,6 +359,76 @@ export const getCloneById = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Error fetching clone",
+      error: error.message
+    });
+  }
+};
+
+export const getCloneUI = async (req, res) => {
+  try {
+    const { clone_id } = req.params;
+
+    // If clone_id is provided, fetch and return clone data
+    if (clone_id && clone_id !== 'undefined') {
+      const clone = await CloneProfile.findOne({ clone_id })
+        .populate('fileUploads', 'originalName fileSize uploadDate')
+
+      if (!clone) {
+        return res.status(404).json({
+          success: false,
+          message: "Clone not found",
+          uiType: "create" // Indicate to show creation form
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Clone data for UI',
+        uiType: "display", // Indicate to show clone data
+        data: {
+          cloneId: clone._id,
+          clone_id: clone.clone_id,
+          cloneName: clone.clone_name,
+          tone: clone.tone,
+          style: clone.style,
+          values: clone.values,
+          catchphrases: clone.catchphrases,
+          dos: clone.dos,
+          donts: clone.donts,
+          description: clone.freeform_description,
+          image: clone.image,
+          fileUploads: clone.fileUploads || [],
+          youtubeLinkUpload: clone.youtubeLinkUpload || [],
+          otherLinkUpload: clone.otherLinkUpload || [],
+          createdAt: clone.createdAt,
+          updatedAt: clone.updatedAt
+        }
+      });
+    }
+
+    // If no clone_id provided, return creation form data
+    return res.status(200).json({
+      success: true,
+      message: 'Clone creation form data',
+      uiType: "create", // Indicate to show creation form
+      data: {
+        cloneName: "",
+        tone: [],
+        style: [],
+        values: [],
+        catchphrases: [],
+        dos: "",
+        donts: "",
+        description: "",
+        image: "default-avatar.png"
+      }
+    });
+
+  } catch (error) {
+    console.error("Error in getCloneUI:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching clone UI data",
       error: error.message
     });
   }

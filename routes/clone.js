@@ -4,6 +4,7 @@ import {
   getAllClones,
   getCloneById,
   uploadForClone,
+  getCloneUI,
 } from '../controllers/clone.js';
 
 const router = express.Router();
@@ -17,5 +18,8 @@ router.get('/test', (req, res) => {
 router.post('/create', uploadForClone.any(), createClone);
 router.get('/all', getAllClones);
 router.get('/:clone_id', getCloneById);
+
+// New route for clone UI - handles both display and creation
+router.get('/ui/:clone_id?', getCloneUI);
 
 export default router;

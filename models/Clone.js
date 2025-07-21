@@ -46,9 +46,13 @@ const cloneProfileSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'File'
   }],
-  linkUpload: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'LinkUpload'
+  youtubeLinkUpload: {
+    type: [String],
+    default: [],
+  },
+  otherLinkUpload: {
+    type: [String],
+    default: [],
   },
 }, { timestamps: true });
 

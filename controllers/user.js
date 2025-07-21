@@ -53,10 +53,15 @@ export const getUser = async (req, res) => {
 
 export const updateUser = async (req, res) => {
     const { id } = req.params;
-    const { username, email, phone } = req.body;
     
     try {
-        let updateData = { username, email, phone };
+        // Start with an empty update object
+        let updateData = {};
+        
+        // Only include fields that are actually being updated
+        if (req.body.phone !== undefined) {
+            updateData.phone = req.body.phone;
+        }
         
         // Handle profile picture upload if present
         if (req.file) {
@@ -87,12 +92,25 @@ export const updateUser = async (req, res) => {
             }
         }
 
+        // Check if there's anything to update
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No fields to update"
+            });
+        }
+
         const user = await User.findByIdAndUpdate(id, updateData, { new: true });
-        res.status(200).json({
-            success: true,
-            message: 'User updated successfully',
-            data: user
-        });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // Return just the user data to match frontend expectations
+        res.status(200).json(user);
     } catch (error) {
         console.error("Error updating user:", error);
         res.status(500).json({ 
