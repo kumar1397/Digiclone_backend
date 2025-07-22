@@ -17,9 +17,9 @@ router.get('/test', (req, res) => {
 // Clone CRUD routes - use multer middleware for FormData handling
 router.post('/create', uploadForClone.any(), createClone);
 router.get('/all', getAllClones);
-router.get('/:clone_id', getCloneById);
+router.get('/:clone_id', getCloneUI);
 
 // New route for clone UI - handles both display and creation
-router.get('/ui/:clone_id?', getCloneUI);
+// router.get('/ui/:clone_id?', getCloneUI);
 
 export default router;

@@ -2,7 +2,7 @@ import CloneProfile from '../models/Clone.js';
 import User from '../models/User.js';
 import cloudinary from 'cloudinary';
 import multer from 'multer';
-import {GridFsStorage} from 'multer-gridfs-storage';
+import { GridFsStorage } from 'multer-gridfs-storage';
 import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 
@@ -18,14 +18,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
-
-// Check if Cloudinary is configured
-if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-  console.error("⚠️ Cloudinary environment variables are missing!");
-  console.error("Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET");
-} else {
-  console.log("✅ Cloudinary configured successfully");
-}
 
 async function uploadtoCloudinary(fileBuffer, folder, quality) {
   console.log("In uploadCloudinary!!");
@@ -43,18 +35,18 @@ async function uploadtoCloudinary(fileBuffer, folder, quality) {
     console.log("Starting direct upload to Cloudinary...");
     console.log("File size:", fileBuffer.length, "bytes");
     console.log("Base64 length:", base64String.length);
-    
+
     // Shorter timeout for smaller files (15 seconds)
     const result = await Promise.race([
       cloudinary.uploader.upload(dataURI, options),
-      new Promise((_, reject) => 
+      new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Cloudinary upload timeout after 15 seconds')), 15000)
       )
     ]);
-    
+
     console.log("Cloudinary upload completed successfully");
     return result;
-    
+
   } catch (error) {
     console.error("Error in Cloudinary upload function:", error);
     console.error("Error details:", {
@@ -196,7 +188,7 @@ export const createClone = async (req, res) => {
         message: "Missing required fields: cloneName, tone, style, values, youtubeLinks, and otherLinks are required"
       });
     }
-    
+
     // Create the clone record with string data only
     const newClone = new CloneProfile({
       clone_id: generateCloneId(),
@@ -225,14 +217,14 @@ export const createClone = async (req, res) => {
       } catch (error) {
         console.error("Error linking clone to user:", error);
       }
-      }
+    }
     // Handle clone image upload if present
     if (req.files && req.files.length > 0) {
       const imageFile = req.files.find(file => file.fieldname === 'cloneImage');
       if (imageFile) {
         console.log("Starting Cloudinary upload for:", imageFile.originalname);
         console.log("Image file size:", imageFile.size, "bytes");
-        
+
         // Check file size (should be small now)
         if (imageFile.size > 5 * 1024 * 1024) { // 5MB limit
           console.log("Image too large, using default image");
@@ -258,7 +250,7 @@ export const createClone = async (req, res) => {
     } else {
       console.log("No files received in request");
     }
-    
+
     // Handle file uploads if present
     let uploadedFiles = [];
     if (req.files && req.files.length > 0) {
@@ -266,7 +258,7 @@ export const createClone = async (req, res) => {
       if (pdfFiles.length > 0) {
         try {
           uploadedFiles = await uploadPDFs(pdfFiles, savedClone.clone_id);
-          
+
           // Update clone's fileUploads field with the uploaded file IDs
           if (uploadedFiles.length > 0) {
             savedClone.fileUploads = uploadedFiles.map(file => file.fileId);
@@ -387,7 +379,7 @@ export const getCloneUI = async (req, res) => {
         uiType: "display", // Indicate to show clone data
         data: {
           cloneId: clone._id,
-          clone_id: clone.clone_id,
+          cloneIdStr: clone.clone_id, // optional: keep this for lookup
           cloneName: clone.clone_name,
           tone: clone.tone,
           style: clone.style,
