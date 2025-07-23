@@ -17,7 +17,9 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+       required: function () {
+        return this.loginMethod === "local";
+      },
     },
     profilePicture: {
       type: String,
@@ -30,6 +32,16 @@ const userSchema = new mongoose.Schema(
     cloneId: {
       type: String,
       required: false,
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    loginMethod: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
     },
   },
   {
