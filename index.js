@@ -6,7 +6,6 @@ import bodyParser from "body-parser";
 import dbConnect from "./config/database.js";
 import conversation from "./routes/conversation.js";
 import clone from "./routes/clone.js";
-import fileupload from "./routes/fileupload.js";
 
 import session from "express-session";
 import passport from "passport";
@@ -47,7 +46,6 @@ app.use(
 app.use("/", user);
 app.use("/", conversation);
 app.use("/clone", clone);
-app.use("/", fileupload);
 app.use("/", googleAuthRoutes); // ⬅️ Google auth routes
 
 // Root

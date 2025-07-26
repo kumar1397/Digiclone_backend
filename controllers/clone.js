@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 
 // Function to generate custom clone_id
-function generateCloneId() {
+function generateCloneId() {    
   const random = Math.random().toString(16).substr(2, 12);
   return `clone_u_${random}`;
 }
@@ -116,7 +116,7 @@ async function uploadPDFs(uploadedFiles, cloneId) {
       return {
         fileId: fileInfo._id,
         originalName: file.originalname,
-        link: `${process.env.BACKEND_URL}/file/${fileInfo._id}`,
+        link: `${process.env.BACKEND_URL}/clone/file/${fileInfo._id}`,
       };
     }));
 
@@ -128,7 +128,6 @@ async function uploadPDFs(uploadedFiles, cloneId) {
     throw error;
   }
 };
-
 
 // Configure multer for handling FormData - Memory storage for clone creation
 const uploadForClone = multer({
@@ -163,23 +162,18 @@ const storage = new GridFsStorage({
 const uploadForPDFs = multer({ storage });
 
 export const createClone = async (req, res) => {
-
   try {
-    // Extract data from FormData
-    console.log(req.body);
+    // Extract form fields
     const cloneName = req.body.cloneName;
-    const tone = req.body.tone;
-    const style = req.body.style;
-    const values = req.body.values;
+    const tone = JSON.parse(req.body.tone || '[]');
+    const style = JSON.parse(req.body.style || '[]');
+    const values = JSON.parse(req.body.values || '[]');
     const catchphrases = req.body.catchphrases;
     const dos = req.body.dos;
     const donts = req.body.donts;
     const description = req.body.description;
-    const youtubeLinks = req.body.youtubeLinks;
-    const otherLinks = req.body.otherLinks;
-    console.log(req.files);
-    // Parse links if they exist
-
+    const youtubeLinks = JSON.parse(req.body.youtubeLinks || '[]');
+    const otherLinks = JSON.parse(req.body.otherLinks || '[]');
 
     // Validate required fields
     if (!cloneName || !tone || !style || !values || !youtubeLinks || !otherLinks) {
@@ -189,84 +183,63 @@ export const createClone = async (req, res) => {
       });
     }
 
-    // Create the clone record with string data only
+    // Create Clone object
     const newClone = new CloneProfile({
       clone_id: generateCloneId(),
       clone_name: cloneName,
       tone,
       style,
       image: 'default-avatar.png',
-      catchphrases: catchphrases ? (Array.isArray(catchphrases) ? catchphrases : [catchphrases]) : [],
-      values: values ? (Array.isArray(values) ? values : [values]) : [],
+      catchphrases: Array.isArray(catchphrases) ? catchphrases : catchphrases ? [catchphrases] : [],
+      values: Array.isArray(values) ? values : values ? [values] : [],
       dos,
       donts,
       freeform_description: description,
-      youtubeLinkUpload: youtubeLinks ? (Array.isArray(youtubeLinks) ? youtubeLinks : [youtubeLinks]) : [],
-      otherLinkUpload: otherLinks ? (Array.isArray(otherLinks) ? otherLinks : [otherLinks]) : [],
+      youtubeLinkUpload: Array.isArray(youtubeLinks) ? youtubeLinks : [youtubeLinks],
+      otherLinkUpload: Array.isArray(otherLinks) ? otherLinks : [otherLinks],
     });
 
     const savedClone = await newClone.save();
 
-    // Update user's cloneId field if userId is provided
+    // Link user with clone if userId provided
     if (req.body.userId) {
       try {
         await User.findByIdAndUpdate(req.body.userId, {
           cloneId: savedClone.clone_id
         });
-        console.log(`Clone ${savedClone.clone_id} linked to user ${req.body.userId}`);
       } catch (error) {
         console.error("Error linking clone to user:", error);
       }
     }
-    // Handle clone image upload if present
-    if (req.files && req.files.length > 0) {
-      const imageFile = req.files.find(file => file.fieldname === 'cloneImage');
-      if (imageFile) {
-        console.log("Starting Cloudinary upload for:", imageFile.originalname);
-        console.log("Image file size:", imageFile.size, "bytes");
 
-        // Check file size (should be small now)
-        if (imageFile.size > 5 * 1024 * 1024) { // 5MB limit
-          console.log("Image too large, using default image");
-        } else {
-          try {
-            const cloudinaryResult = await uploadtoCloudinary(
-              imageFile.buffer,
-              'clone-images',
-              'auto'
-            );
-            console.log("Cloudinary upload successful:", cloudinaryResult.secure_url);
-            savedClone.image = cloudinaryResult.secure_url;
-            await savedClone.save();
-            console.log("Clone updated with new image URL");
-          } catch (error) {
-            console.error("Error uploading clone image:", error);
-            console.log("Using default image due to upload error");
-          }
-        }
-      } else {
-        console.log("No cloneImage file found in request");
+    // Handle clone image upload
+    const imageFile = req.files?.find(file => file.fieldname === 'cloneImage');
+    if (imageFile && imageFile.size <= 5 * 1024 * 1024) {
+      try {
+        const cloudinaryResult = await uploadtoCloudinary(
+          imageFile.buffer,
+          'clone-images',
+          'auto'
+        );
+        savedClone.image = cloudinaryResult.secure_url;
+        await savedClone.save();
+      } catch (error) {
+        console.error("Error uploading clone image:", error);
       }
-    } else {
-      console.log("No files received in request");
     }
 
-    // Handle file uploads if present
+    // Handle PDF file uploads
     let uploadedFiles = [];
-    if (req.files && req.files.length > 0) {
-      const pdfFiles = req.files.filter(file => file.fieldname === 'uploadedFiles');
-      if (pdfFiles.length > 0) {
-        try {
-          uploadedFiles = await uploadPDFs(pdfFiles, savedClone.clone_id);
-
-          // Update clone's fileUploads field with the uploaded file IDs
-          if (uploadedFiles.length > 0) {
-            savedClone.fileUploads = uploadedFiles.map(file => file.fileId);
-            await savedClone.save();
-          }
-        } catch (error) {
-          console.error("Error uploading files:", error);
+    const pdfFiles = req.files?.filter(file => file.fieldname === 'uploadedFiles') || [];
+    if (pdfFiles.length > 0) {
+      try {
+        uploadedFiles = await uploadPDFs(pdfFiles, savedClone.clone_id);
+        if (uploadedFiles.length > 0) {
+          savedClone.fileUploads = uploadedFiles.map(file => file.fileId);
+          await savedClone.save();
         }
+      } catch (error) {
+        console.error("Error uploading files:", error);
       }
     }
 
@@ -301,6 +274,63 @@ export const createClone = async (req, res) => {
   }
 };
 
+export const updateClone = async (req, res) => {
+  const { clone_id } = req.params;
+
+  try {
+    const { tone, style, catchphrases, dos, donts, freeform_description } = req.body;
+
+    // Basic validation
+    if (!clone_id) {
+      return res.status(400).json({ success: false, message: "Missing clone_id" });
+    }
+
+    // Optional: validate data types
+    if (
+      !Array.isArray(tone) ||
+      !Array.isArray(style) ||
+      !Array.isArray(catchphrases)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "tone, style, and catchphrases must be arrays",
+      });
+    }
+
+    // Find and update the clone
+    const updatedClone = await CloneProfile.findOneAndUpdate(
+      { clone_id },
+      {
+        tone,
+        style,
+        catchphrases,
+        dos,
+        donts,
+        freeform_description,
+      },
+      { new: true }
+    );
+
+    if (!updatedClone) {
+      return res.status(404).json({ success: false, message: "Clone not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Clone personality updated successfully",
+      data: updatedClone,
+    });
+
+  } catch (error) {
+    console.error("Error updating clone personality:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update clone personality",
+      error: error.message,
+    });
+  }
+};
+
 export const getAllClones = async (req, res) => {
   try {
     // Fetch all clones with populated fileUploads and linkUpload
@@ -325,38 +355,7 @@ export const getAllClones = async (req, res) => {
   }
 };
 
-export const getCloneById = async (req, res) => {
-  try {
-    const { clone_id } = req.params;
-
-    // Fetch clone by clone_id with populated references
-    const clone = await CloneProfile.findOne({ clone_id })
-      .populate('fileUploads', 'originalName fileSize uploadDate')
-
-    if (!clone) {
-      return res.status(404).json({
-        success: false,
-        message: "Clone not found"
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: 'Clone fetched successfully',
-      data: clone
-    });
-
-  } catch (error) {
-    console.error("Error fetching clone:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Error fetching clone",
-      error: error.message
-    });
-  }
-};
-
-export const getCloneUI = async (req, res) => {
+export const getClonebyId = async (req, res) => {
   try {
     const { clone_id } = req.params;
 
@@ -425,6 +424,198 @@ export const getCloneUI = async (req, res) => {
     });
   }
 };
+
+export const uploadFilesperId = async (req, res) => {
+  try {
+    const cloneId = req.params.clone_id;
+    const savedClone = await CloneProfile.findOne({ clone_id: cloneId });
+
+    if (!savedClone) {
+      return res.status(404).json({
+        success: false,
+        message: "Clone not found",
+      });
+    }
+
+    // Handle file uploads
+    let uploadedFiles = [];
+
+    if (req.files && req.files.length > 0) {
+      const pdfFiles = req.files.filter(file => file.fieldname === 'uploadedFiles');
+
+      if (pdfFiles.length > 0) {
+        try {
+          uploadedFiles = await uploadPDFs(pdfFiles, cloneId);
+
+          if (uploadedFiles.length > 0) {
+            savedClone.fileUploads = uploadedFiles.map(file => file.fileId);
+            await savedClone.save();
+          }
+        } catch (error) {
+          console.error("Error uploading files:", error);
+        }
+      }
+    }
+
+    console.log("Saved Clone:", savedClone);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Files uploaded and clone updated successfully',
+    });
+
+  } catch (error) {
+    console.error("Error in UploadFilesperId:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error uploading files or updating clone",
+      error: error.message
+    });
+  }
+};
+
+export const uploadYoutubeLinks = async (req, res) => {
+  const { clone_id } = req.params;
+  const { youtubeLinks } = req.body;
+  try {
+    if (!youtubeLinks || !Array.isArray(youtubeLinks) || youtubeLinks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing youtubeLinks"
+      });
+    }
+
+    const clone = await CloneProfile.findOne({ clone_id });
+
+    if (!clone) {
+      return res.status(404).json({
+        success: false,
+        message: "Clone not found"
+      });
+    }
+
+    // Update youtube links
+    clone.youtubeLinkUpload = youtubeLinks;
+    await clone.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'YouTube links updated successfully',
+      data: clone.youtubeLinkUpload
+    });
+
+  } catch (error) {
+    console.error("Error updating YouTube links:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error updating YouTube links",
+      error: error.message
+    });
+  }
+}
+
+export const uploadOtherLinks = async (req, res) => {
+  const { clone_id } = req.params;
+  const { otherLinks } = req.body;
+  try {
+    if (!otherLinks || !Array.isArray(otherLinks) || otherLinks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing otherLinks"
+      });
+    }
+
+    const clone = await CloneProfile.findOne({ clone_id });
+
+    if (!clone) {
+      return res.status(404).json({
+        success: false,
+        message: "Clone not found"
+      });
+    }
+
+    // Update other links
+    clone.otherLinkUpload = otherLinks;
+    await clone.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Other links updated successfully',
+      data: clone.otherLinkUpload
+    });
+
+  } catch (error) {
+    console.error("Error updating other links:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error updating other links",
+      error: error.message
+    });
+  }
+};
+
+export const getFilesByCloneId = async (req, res) => {
+  const { clone_id } = req.params;
+
+  try {
+    const files = await File.find({ cloneId: clone_id });
+
+    if (!files.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No files found for this clone',
+      });
+    }
+
+    const response = files.map(file => ({
+      id: file._id,
+      fileId: file.fileId,
+      name: file.originalName,
+      size: file.fileSize,
+      mimeType: file.mimeType,
+      uploadedAt: file.uploadDate,
+      url: `${process.env.BACKEND_URL}/clone/file/${file.fileId}`, // ✅ correct route
+    }));
+
+    res.status(200).json({ success: true, files: response });
+  } catch (error) {
+    console.error('Error fetching files:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching files',
+      error: error.message,
+    });
+  }
+};
+
+export const getPDFById = async (req, res) => {
+  try {
+    const fileId = new mongoose.Types.ObjectId(req.params.fileId);
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: 'pdfs',
+    });
+
+    const downloadStream = bucket.openDownloadStream(fileId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline', // Use "attachment" if you want it to be downloadable
+    });
+
+    downloadStream.pipe(res);
+
+    downloadStream.on('error', (err) => {
+      console.error("Stream error:", err);
+      res.status(404).json({ success: false, message: 'File not found' });
+    });
+
+  } catch (err) {
+    console.error("Error fetching PDF:", err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 
 export {
   uploadForClone,

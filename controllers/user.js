@@ -63,12 +63,7 @@ export const updateUser = async (req, res) => {
             updateData.phone = req.body.phone;
         }
         
-        // Handle profile picture upload if present
         if (req.file) {
-            console.log("Profile picture upload detected:", req.file.originalname);
-            console.log("Image file size:", req.file.size, "bytes");
-            
-            // Check file size (5MB limit for profile pictures)
             if (req.file.size > 5 * 1024 * 1024) {
                 return res.status(400).json({
                     success: false,

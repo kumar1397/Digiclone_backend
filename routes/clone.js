@@ -2,24 +2,26 @@ import express from 'express';
 import {
   createClone,
   getAllClones,
-  getCloneById,
+  getClonebyId,
   uploadForClone,
-  getCloneUI,
+  uploadOtherLinks,
+  uploadFilesperId,
+  uploadYoutubeLinks,
+  getFilesByCloneId,
+  getPDFById,
+  updateClone
 } from '../controllers/clone.js';
 
 const router = express.Router();
-
-// Test route to verify clone routes are working
-router.get('/test', (req, res) => {
-  res.json({ message: 'Clone routes are working!' });
-});
-
 // Clone CRUD routes - use multer middleware for FormData handling
 router.post('/create', uploadForClone.any(), createClone);
+router.put('/:clone_id',  updateClone);
 router.get('/all', getAllClones);
-router.get('/:clone_id', getCloneUI);
-
-// New route for clone UI - handles both display and creation
-// router.get('/ui/:clone_id?', getCloneUI);
+router.get('/:clone_id', getClonebyId);
+router.post('/upload/pdf/:clone_id', uploadForClone.array('uploadedFiles'),uploadFilesperId);
+router.post('/upload/youtube/:clone_id', uploadYoutubeLinks);
+router.post('/upload/other/:clone_id', uploadOtherLinks);
+router.get('/files/:clone_id', getFilesByCloneId);
+router.get('/file/:fileId', getPDFById);
 
 export default router;
