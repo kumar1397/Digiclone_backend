@@ -33,16 +33,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    googleId: {
-      type: String,
-      unique: true,
-      sparse: true,
-    },
-    loginMethod: {
-      type: String,
-      enum: ["local", "google"],
-      default: "local",
-    },
   },
   {
     timestamps: true,
