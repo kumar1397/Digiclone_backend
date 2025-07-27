@@ -87,11 +87,11 @@ export const signin = async (req, res) => {
     return res.status(200).json({
       success: true,
       user: {
-        _id: user._id, 
+        _id: user._id,
         email: user.email,
         name: user.name,
       },
-      token, 
+      token,
       message: "Login successful",
     });
   } catch (err) {
@@ -101,17 +101,33 @@ export const signin = async (req, res) => {
 };
 
 
+export const createuser = async (req, res) => {
+  try {
+    const { name, email, image } = req.body;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({ name, email, profilePicture:image });
+    }
+
+    return res.status(200).json({ success: true, user });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
 export const logout = async (req, res) => {
   try {
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Logged out successfully' 
+    return res.status(200).json({
+      success: true,
+      message: 'Logged out successfully'
     });
   } catch (err) {
     console.error("Logout error:", err);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Internal server error" 
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
     });
   }
 };

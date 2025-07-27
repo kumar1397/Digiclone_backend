@@ -1,5 +1,5 @@
 import express from 'express';
-import { signin, signup, logout } from '../controllers/Auth.js';
+import { signin, signup, logout, createuser } from '../controllers/Auth.js';
 import { getUser, updateUser, deleteUser } from '../controllers/user.js';
 
 import multer from 'multer';
@@ -10,6 +10,7 @@ const router = express.Router();
 router.post('/signup', signup);
 router.post('/signin', signin);
 router.get('/logout', logout);
+router.post('/create', createuser)
 
 // User routes
 router.get('/user/:id', getUser);
