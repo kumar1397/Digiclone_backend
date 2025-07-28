@@ -1,6 +1,6 @@
 import express from 'express';
 import { signin, signup, logout, createuser } from '../controllers/Auth.js';
-import { getUser, updateUser, deleteUser } from '../controllers/user.js';
+import { getUser, updateUser, deleteUser, getUserById } from '../controllers/user.js';
 
 import multer from 'multer';
 const upload = multer();
@@ -13,7 +13,8 @@ router.get('/logout', logout);
 router.post('/create', createuser)
 
 // User routes
-router.get('/user/:id', getUser);
+router.post('/user', getUser);
+router.get('/user/:id', getUserById);
 router.put('/user/:id', upload.single('profilePicture'), updateUser);
 router.delete('/user/:id', deleteUser);
 
