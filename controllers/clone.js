@@ -333,23 +333,23 @@ export const updateClone = async (req, res) => {
 
 export const getAllClones = async (req, res) => {
   try {
-    // Fetch all clones with populated fileUploads and linkUpload
-    const clones = await CloneProfile.find({})
+    // Fetch only published clones
+    const clones = await CloneProfile.find({ status: "publish" })
       .populate('fileUploads', 'originalName fileSize uploadDate')
       .sort({ createdAt: -1 }); // Sort by newest first
 
     return res.status(200).json({
       success: true,
-      message: 'Clones fetched successfully',
+      message: 'Published clones fetched successfully',
       count: clones.length,
       data: clones
     });
 
   } catch (error) {
-    console.error("Error fetching clones:", error);
+    console.error("Error fetching published clones:", error);
     return res.status(500).json({
       success: false,
-      message: "Error fetching clones",
+      message: "Error fetching published clones",
       error: error.message
     });
   }
@@ -615,7 +615,6 @@ export const getPDFById = async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
-
 
 export {
   uploadForClone,

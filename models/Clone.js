@@ -3,22 +3,22 @@ import mongoose from 'mongoose';
 
 const cloneProfileSchema = new mongoose.Schema({
   clone_id: {
-    type:String, 
-    unique:true,
-    required:true,
+    type: String,
+    unique: true,
+    required: true,
   },
-  clone_name: { 
+  clone_name: {
     type: String,
     required: true,
   },
   tone: {
     type: [String],
-    default:[],
+    default: [],
     required: true,
   },
   style: {
     type: [String],
-    default:[],
+    default: [],
     required: true,
   },
   image: {
@@ -54,6 +54,11 @@ const cloneProfileSchema = new mongoose.Schema({
     type: [String],
     default: [],
   },
+  status: {
+    type: String,
+    enum: ["upload", "approved", "publish"],
+    default: "upload",
+  }
 }, { timestamps: true });
 
 const CloneProfile = mongoose.model('CloneProfile', cloneProfileSchema);
