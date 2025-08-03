@@ -38,23 +38,24 @@ export const saveMessage = async (req, res) => {
 // Get all conversations (sessions) for a user
 export const getUserConversations = async (req, res) => {
   try {
-    const { userId, cloneId } = req.params;
-
+    const { userId, cloneId } = req.body;
     const conversation = await Conversation.findOne({
       userId: new mongoose.Types.ObjectId(userId),
-      cloneId
+      cloneId,
     });
 
     if (!conversation) {
-      return res.status(200).json({ messages: [] }); // No conversation yet
+      return res.status(200).json({ messages: [] });
     }
 
     return res.status(200).json({ messages: conversation.messages });
   } catch (error) {
-    console.error("Error fetching conversation:", error);
+    console.error("❌ Error fetching conversation:", error);
     return res.status(500).json({ error: "Failed to fetch conversation" });
   }
 };
+
+
 
 
 export const getUserClonesWithDetails = async (req, res) => {

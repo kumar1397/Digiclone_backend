@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Conversation routes
 router.post('/conversation/save', saveMessage);
-router.get('/conversations/:userId/:cloneId', getUserConversations);
+router.post('/conversations', getUserConversations);
 router.get('/conversation/:userId', getUserClonesWithDetails)
 
 export default router;
