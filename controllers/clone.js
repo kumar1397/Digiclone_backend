@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 import File from '../models/FileUpload.js';
 
 // Function to generate custom clone_id
-function generateCloneId() {    
+function generateCloneId() {
   const random = Math.random().toString(16).substr(2, 12);
   return `clone_u_${random}`;
 }
@@ -176,10 +176,19 @@ export const createClone = async (req, res) => {
     const otherLinks = JSON.parse(req.body.otherLinks || '[]');
 
     // Validate required fields
-    if (!cloneName || !tone || !style || !values || !youtubeLinks || !otherLinks) {
+    if (
+      !cloneName?.trim() ||
+      !catchphrases?.trim() ||
+      !dos?.trim() ||
+      !donts?.trim() ||
+      !description?.trim() ||
+      !Array.isArray(tone) || tone.length === 0 ||
+      !Array.isArray(style) || style.length === 0 ||
+      !Array.isArray(values) || values.length === 0 
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: cloneName, tone, style, values, youtubeLinks, and otherLinks are required"
+        message: "Missing required fields"
       });
     }
 
